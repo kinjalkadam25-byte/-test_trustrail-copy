@@ -1,0 +1,87 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trusttrail
+      POSTGRES_PASSWORD: trusttrail_dev_password
+      POSTGRES_DB: trusttrail
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Postgres's official image auto-runs any .sql file placed here, in filename
+      # order, the FIRST time the data volume is created — this is what boots the
+      # 9-table schema with no manual step.
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U trusttrail -d trusttrail']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: trusttrail
+      PGPASSWORD: trusttrail_dev_password
+      PGDATABASE: trusttrail
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: change_this_to_a_long_random_string
+      JWT_EXPIRES_IN: 8h
+      CORS_ORIGIN: http://localhost:5007
+      # Leave unset until Parth's Flask service exists — the backend skips
+      # anomaly scoring cleanly with no other code changes needed. Once it's
+      # ready and added as its own service, point this at it, e.g.:
+      # ML_SERVICE_URL: http://ml-service:8000
+      ML_SERVICE_URL: http://ml-service:8000
+    ports:
+      - '4000:4000'
+    volumes:
+      - ./backend/src:/app/src
+    command: npm run dev
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # NEXT_PUBLIC_* vars are baked into the browser bundle, so this must be a
+      # URL the browser (on the host machine) can reach — the frontend
+      # container itself never calls the backend directly.
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+    ports:
+      - '5007:5007'
+    volumes:
+      - ./frontend/src:/app/src
+    command: npm run dev
+
+  ml-service:
+    build: ./ml-service
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+
+volumes:
+  pgdata:

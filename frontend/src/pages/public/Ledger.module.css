@@ -1,0 +1,144 @@
+.liveRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.liveIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--verified);
+}
+
+.liveDot.paused {
+  background: var(--ink-soft);
+}
+
+.pauseBtn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.pauseBtn:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.statCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  box-shadow: var(--shadow-card);
+}
+
+.statIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--brand-tint);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.6rem;
+}
+
+.statValue {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.statLabel {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.statSub {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  margin-top: 0.3rem;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.searchRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.searchInput {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: var(--paper-alt);
+  color: var(--ink);
+  min-width: 220px;
+}
+
+.statusSelect {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: var(--paper-alt);
+  color: var(--ink);
+}
+
+.emptyRow {
+  text-align: center;
+  color: var(--ink-soft);
+  padding: 1.5rem 0;
+}

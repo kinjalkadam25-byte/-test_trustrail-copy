@@ -1,0 +1,49 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.verified {
+  background: var(--verified-tint);
+  color: var(--verified);
+}
+.verified .dot {
+  background: var(--verified);
+}
+
+.pending {
+  background: var(--pending-tint);
+  color: var(--pending);
+}
+.pending .dot {
+  background: var(--pending);
+}
+
+.flagged {
+  background: var(--flagged-tint);
+  color: var(--flagged);
+}
+.flagged .dot {
+  background: var(--flagged);
+}
+
+.neutral {
+  background: var(--paper-alt);
+  color: var(--ink-soft);
+}
+.neutral .dot {
+  background: var(--ink-soft);
+}

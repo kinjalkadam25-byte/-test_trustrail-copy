@@ -1,0 +1,148 @@
+/* TrustTrail design tokens
+   Concept: a physical donation ledger / passbook — aged paper, stamped ink,
+   monospace codes that read like something a machine can verify.
+   Fonts are system stacks on purpose: Phase 8 of the build plan requires
+   `docker-compose up` to work with no internet at the venue, so nothing here
+   depends on a font CDN. */
+
+:root {
+   /* Color */
+    /* Color */
+  --paper: #faf7f2;
+  --paper-alt: #f3eee6;
+  --ink: #201c16;
+  --ink-soft: #6b6357;
+  --brand: #1f6f54;
+  --brand-hover: #195a44;
+  --brand-tint: #e7f1ec;
+  --verified: #2f9e64;
+  --verified-tint: #e4f5eb;
+  --pending: #c2703d;
+  --pending-tint: #f5e6da;
+  --flagged: #b5432f;
+  --flagged-tint: #f8e3de;
+  --surface: #ffffff;
+  --border: #e8e1d5;
+  --border-strong: #d9cfc0;
+    --header-bg: rgba(255, 255, 255, 0.9);
+
+  /* Type */
+  --font-display: Georgia, 'Times New Roman', 'Noto Serif', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'SFMono-Regular', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+
+  /* Layout */
+  --radius: 10px;
+  --shadow-card: 0 1px 3px rgba(32, 28, 22, 0.06), 0 8px 24px rgba(32, 28, 22, 0.04);
+  --max-width: 1080px;
+}
+*,
+*::before,
+*::after {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease,
+    fill 0.25s ease, stroke 0.25s ease;
+}
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 0.5em;
+  color: var(--ink);
+}
+
+h1 {
+  font-size: 1.9rem;
+}
+h2 {
+  font-size: 1.35rem;
+}
+h3 {
+  font-size: 1.05rem;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Visible keyboard focus everywhere — no outline: none anywhere in this app */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--brand-tint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+:root[data-theme='dark'] {
+  --paper: #10140f;
+  --paper-alt: #171c15;
+  --ink: #f3efe6;
+  --ink-soft: #9b9587;
+  --brand: #3fa37d;
+  --brand-hover: #4fbf8f;
+  --brand-tint: #1e2c24;
+  --verified: #4fbf87;
+  --verified-tint: #1b2a20;
+  --pending: #e08a52;
+  --pending-tint: #2b211a;
+  --flagged: #e2695a;
+  --flagged-tint: #2e1c18;
+  --surface: #1b2118;
+  --border: #2a3126;
+  --border-strong: #3a4236;
+  --header-bg: rgba(16, 20, 15, 0.85);
+}
