@@ -54,15 +54,15 @@ router.get('/ngo/:ngoId/trust-score', async (req, res) => {
   const cacheKey = `trust-score:${req.params.ngoId}`;
   try {
     const redis = await getRedis();
-    const cached = await redis.get(cacheKey);
+    const cached = await redis.get<TrustScorePayload>(cacheKey);
     if (cached) {
-      return res.json({ ...JSON.parse(cached), cached: true });
+      return res.json({ ...cached, cached: true });
     }
 
     const payload = await computeTrustScore(req.params.ngoId);
     if (!payload) return res.status(404).json({ error: 'NGO not found' });
 
-    await redis.set(cacheKey, JSON.stringify(payload), { EX: TRUST_SCORE_TTL_SECONDS });
+    await redis.set(cacheKey, payload, { ex: TRUST_SCORE_TTL_SECONDS });
     res.json({ ...payload, cached: false });
   } catch (err) {
     console.error('trust score error:', err);
@@ -203,9 +203,9 @@ router.get('/ledger', async (req, res) => {
   try {
     if (isCacheable) {
       const redis = await getRedis();
-      const cached = await redis.get(cacheKey);
+      const cached = await redis.get<LedgerSummary>(cacheKey);
       if (cached) {
-        return res.json({ ...JSON.parse(cached), cached: true });
+        return res.json({ ...cached, cached: true });
       }
     }
 
@@ -213,7 +213,7 @@ router.get('/ledger', async (req, res) => {
 
     if (isCacheable) {
       const redis = await getRedis();
-      await redis.set(cacheKey, JSON.stringify(payload), { EX: LEDGER_TTL_SECONDS });
+      await redis.set(cacheKey, payload, { ex: LEDGER_TTL_SECONDS });
     }
 
     res.json({ ...payload, cached: false });
