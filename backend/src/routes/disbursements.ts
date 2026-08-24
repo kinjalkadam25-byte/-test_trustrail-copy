@@ -22,6 +22,16 @@ router.post('/', authMiddleware, requireRole('ngo_admin'), async (req, res) => {
 
   try {
     const result = await withTransaction(async (client) => {
+      if (vendorId) {
+        const vendorCheck = await client.query(
+          `SELECT id FROM users WHERE id = $1 AND role = 'vendor' AND ngo_id = $2`,
+          [vendorId, ngoId]
+        );
+        if (vendorCheck.rowCount === 0) {
+          throw Object.assign(new Error('vendorId must be a vendor assigned to this NGO'), { httpStatus: 400 });
+        }
+      }
+
       const inserted = await withUniqueCode((code) =>
         client.query(
           `INSERT INTO disbursements (ngo_id, vendor_id, amount, purpose, category, verification_code)
@@ -94,7 +104,8 @@ router.post('/', authMiddleware, requireRole('ngo_admin'), async (req, res) => {
     });
 
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.httpStatus) return res.status(err.httpStatus).json({ error: err.message });
     console.error('create disbursement error:', err);
     res.status(500).json({ error: 'Failed to create disbursement' });
   }
