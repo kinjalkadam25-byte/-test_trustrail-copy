@@ -1,4 +1,7 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+// '??' (not '||') so an explicitly empty string is honored as "same-origin,
+// let next.config.js's rewrite proxy /api/* to the backend" -- '||' would
+// treat '' as unset and fall through to the localhost default below.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
 export class ApiError extends Error {
   status: number;
