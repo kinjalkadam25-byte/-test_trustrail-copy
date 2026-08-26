@@ -8,7 +8,7 @@ import styles from './Layout.module.css';
 const ROLE_LINKS: Record<string, { href: string; label: string }[]> = {
   donor: [
     { href: '/donor/donate', label: 'Donate' },
-    { href: '/donor/lookup', label: 'My donations' },
+    { href: '/donor/lookup', label: 'Trace a donation' },
   ],
   ngo_admin: [
     { href: '/ngo/dashboard', label: 'Dashboard' },
@@ -63,9 +63,14 @@ export default function Nav() {
               {link.label}
             </Link>
           ))}
-          <Link href="/verify" className={styles.navLink}>
-            Verify a code
-          </Link>
+          {/* Donors trace their own donations by donation code (above) --
+              they never need a disbursement verification code, so this
+              link is hidden for that role specifically. */}
+          {user?.role !== 'donor' && (
+            <Link href="/verify" className={styles.navLink}>
+              Verify a code
+            </Link>
+          )}
           <Link href="/public" className={styles.navLink}>
             Public Ledger
           </Link>
