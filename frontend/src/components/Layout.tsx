@@ -17,6 +17,10 @@ export default function Layout({ children }: { children: ReactNode }) {
     return <div className={styles.shell}>{children}</div>;
   }
 
+  // Mirrors Nav.tsx: the signed-out landing page has its own single focused
+  // CTA, so these are redundant clutter there specifically, not on any other page.
+  const isSignedOutHome = !user && router.pathname === '/';
+
   return (
     <div className={styles.shell}>
       <Nav />
@@ -36,10 +40,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className={styles.footerCol}>
             <p className={styles.footerHeading}>Quick links</p>
             {/* Donors trace donations by donation code and never need this -- see Nav.tsx */}
-            {user?.role !== 'donor' && (
+            {user?.role !== 'donor' && !isSignedOutHome && (
               <Link href="/verify" className={styles.footerLink}>Verify a code</Link>
             )}
-            <Link href="/public" className={styles.footerLink}>Public Ledger</Link>
+            {!isSignedOutHome && (
+              <Link href="/public" className={styles.footerLink}>Public Ledger</Link>
+            )}
             <Link href="/login" className={styles.footerLink}>Log in</Link>
           </div>
 
