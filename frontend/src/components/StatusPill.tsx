@@ -8,6 +8,9 @@ const STATUS_LABELS: Record<string, string> = {
   unreviewed: 'Unreviewed',
   confirmed_ok: 'Confirmed OK',
   confirmed_issue: 'Confirmed issue',
+  processing: 'Processing',
+  success: 'Success',
+  failed: 'Failed',
 };
 
 const STATUS_TONE: Record<string, 'verified' | 'pending' | 'flagged' | 'neutral'> = {
@@ -18,6 +21,9 @@ const STATUS_TONE: Record<string, 'verified' | 'pending' | 'flagged' | 'neutral'
   unreviewed: 'pending',
   confirmed_ok: 'verified',
   confirmed_issue: 'flagged',
+  processing: 'pending',
+  success: 'verified',
+  failed: 'flagged',
 };
 
 export default function StatusPill({ status }: { status: string }) {

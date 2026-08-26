@@ -26,13 +26,14 @@ export default function VerifyCodePage() {
       .finally(() => setLoading(false));
   }, [code]);
 
-  // The OCR receipt check runs in the background after upload (see
-  // backend/src/routes/bills.ts's waitUntil call), so a bill uploaded just
-  // moments ago can briefly have `ocr: null` -- poll a few times rather than
-  // making the visitor manually refresh to see it show up. `pollAttempts` is
+  // The OCR check and the payout to the vendor's bank account both settle in
+  // the background (see backend/src/routes/bills.ts and disbursements.ts's
+  // waitUntil calls), and a disbursement only reaches a final status once
+  // BOTH have -- poll a few times while still 'pending_review' rather than
+  // making the visitor manually refresh to see it resolve. `pollAttempts` is
   // a ref (not state) so each tick doesn't retrigger this effect and reset
   // the counter -- only `needsPoll` flipping false actually stops it.
-  const needsPoll = Boolean(code) && Boolean(data?.bill) && !data?.ocr;
+  const needsPoll = Boolean(code) && Boolean(data?.bill) && data?.disbursement.status === 'pending_review';
   const pollAttempts = useRef(0);
 
   useEffect(() => {
@@ -160,6 +161,31 @@ export default function VerifyCodePage() {
                     </p>
                   )}
                 </>
+              )}
+            </div>
+          )}
+
+          {data.bill && (
+            <div className={ui.card}>
+              <h3>Payout to vendor</h3>
+              <p className={ui.helpText} style={{ marginTop: '-0.4rem', marginBottom: '1rem' }}>
+                Confirms funds actually moved to the vendor&apos;s bank account — required alongside the receipt
+                check above before this can be marked verified.
+              </p>
+              {!data.payout ? (
+                <div className={ui.warning}>No payout has been made yet — the vendor has no bank account on file.</div>
+              ) : data.payout.status === 'processing' ? (
+                <div className={ui.helpText}>Payout in progress… this can take a few seconds.</div>
+              ) : data.payout.status === 'success' ? (
+                <div className={ui.success}>
+                  Funds were confirmed delivered to the vendor&apos;s bank account
+                  {data.payout.completedAt ? ` on ${new Date(data.payout.completedAt).toLocaleDateString('en-IN')}` : ''}.
+                </div>
+              ) : (
+                <div className={ui.error}>
+                  Payout failed — funds never reached the vendor.
+                  {data.payout.failureReason ? ` ${data.payout.failureReason}` : ''}
+                </div>
               )}
             </div>
           )}

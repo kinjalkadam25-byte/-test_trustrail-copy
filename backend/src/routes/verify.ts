@@ -23,6 +23,9 @@ router.get('/:verificationCode', async (req, res) => {
       : null;
     const ocr = ocrRes?.rows[0] ?? null;
 
+    const payoutRes = await pool.query(`SELECT * FROM payouts WHERE disbursement_id = $1`, [disbursement.id]);
+    const payout = payoutRes.rows[0] ?? null;
+
     const amountMatch = bill ? Number(bill.amount_claimed) === Number(disbursement.amount) : null;
 
     // Purely a read -- this endpoint no longer decides or writes status.
@@ -64,6 +67,13 @@ router.get('/:verificationCode', async (req, res) => {
             confidence: ocr.confidence,
             amountMismatch: ocr.amount_mismatch,
           }
+        : null,
+      // Confirms funds actually moved to the vendor's bank account -- required
+      // (alongside the bill/OCR check above) for 'verified' status; see
+      // utils/verification.ts's reconcileDisbursementStatus. null means no
+      // payout has been triggered yet (no bank account on file for the vendor).
+      payout: payout
+        ? { status: payout.status, failureReason: payout.failure_reason, completedAt: payout.completed_at }
         : null,
     });
   } catch (err) {

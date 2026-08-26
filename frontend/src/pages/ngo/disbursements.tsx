@@ -33,12 +33,28 @@ function DisbursementsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateResult | null>(null);
 
+  const [payoutBusyId, setPayoutBusyId] = useState<string | null>(null);
+  const [payoutError, setPayoutError] = useState<string | null>(null);
+
   async function loadList() {
     try {
       const data = await api.get<NgoDisbursementRow[]>('/api/ngo/disbursements', token);
       setRows(data);
     } catch (err) {
       setListError(err instanceof ApiError ? err.message : 'Failed to load disbursements');
+    }
+  }
+
+  async function triggerPayout(disbursementId: string) {
+    setPayoutError(null);
+    setPayoutBusyId(disbursementId);
+    try {
+      await api.post(`/api/disbursements/${disbursementId}/payout`, {}, token);
+      await loadList();
+    } catch (err) {
+      setPayoutError(err instanceof ApiError ? err.message : 'Failed to trigger payout');
+    } finally {
+      setPayoutBusyId(null);
     }
   }
 
@@ -188,6 +204,7 @@ function DisbursementsPage() {
       <div className={ui.card}>
         <h3>All disbursements</h3>
         {listError && <div className={ui.error}>{listError}</div>}
+        {payoutError && <div className={ui.error}>{payoutError}</div>}
         {rows.length === 0 && !listError ? (
           <div className={ui.emptyState}>No disbursements logged yet.</div>
         ) : (
@@ -198,6 +215,7 @@ function DisbursementsPage() {
                 <th>Amount</th>
                 <th>Vendor</th>
                 <th>Status</th>
+                <th>Payout</th>
                 <th>Flag</th>
                 <th>Verification code</th>
               </tr>
@@ -217,6 +235,37 @@ function DisbursementsPage() {
                   <td>{r.disbursement.vendorName || '—'}</td>
                   <td>
                     <StatusPill status={r.disbursement.status} />
+                  </td>
+                  <td>
+                    {r.payoutStatus ? (
+                      <span title={r.payoutFailureReason ?? undefined}>
+                        <StatusPill status={r.payoutStatus} />
+                      </span>
+                    ) : r.disbursement.vendorId && r.vendorHasBankAccount ? (
+                      <button
+                        type="button"
+                        className={ui.buttonSecondary}
+                        disabled={payoutBusyId === r.disbursement.id}
+                        onClick={() => triggerPayout(r.disbursement.id)}
+                      >
+                        {payoutBusyId === r.disbursement.id ? 'Sending…' : 'Send payout'}
+                      </button>
+                    ) : r.disbursement.vendorId ? (
+                      <span className={ui.helpText}>Vendor has no bank account yet</span>
+                    ) : (
+                      '—'
+                    )}
+                    {r.payoutStatus === 'failed' && r.vendorHasBankAccount && (
+                      <button
+                        type="button"
+                        className={ui.buttonSecondary}
+                        style={{ marginTop: '0.4rem' }}
+                        disabled={payoutBusyId === r.disbursement.id}
+                        onClick={() => triggerPayout(r.disbursement.id)}
+                      >
+                        {payoutBusyId === r.disbursement.id ? 'Retrying…' : 'Retry payout'}
+                      </button>
+                    )}
                   </td>
                   <td>
                     {r.flagStatus ? (

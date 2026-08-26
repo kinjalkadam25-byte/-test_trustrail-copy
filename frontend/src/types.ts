@@ -47,6 +47,8 @@ export interface AnomalyFlagSummary {
   reviewStatus: 'unreviewed' | 'confirmed_ok' | 'confirmed_issue';
 }
 
+export type PayoutStatus = 'processing' | 'success' | 'failed';
+
 export interface NgoDisbursementRow {
   disbursement: DisbursementSummary & {
     underfunded: boolean;
@@ -55,6 +57,19 @@ export interface NgoDisbursementRow {
     createdAt: string;
   };
   flagStatus: AnomalyFlagSummary | null;
+  // Funds-moved leg of verification, alongside the bill/OCR leg -- see
+  // backend/src/utils/verification.ts's reconcileDisbursementStatus. null
+  // means no payout has ever been triggered (vendor had no bank account on
+  // file yet when the disbursement was created).
+  payoutStatus: PayoutStatus | null;
+  payoutFailureReason: string | null;
+  vendorHasBankAccount: boolean;
+}
+
+export interface VendorBankAccount {
+  accountNumber: string;
+  ifscCode: string;
+  accountHolderName: string;
 }
 
 export interface NgoDashboard {
@@ -104,6 +119,14 @@ export interface VerifyResponse {
     date: string | null;
     confidence: 'high' | 'low' | 'none';
     amountMismatch: boolean | null;
+  } | null;
+  // Confirms funds actually moved to the vendor's bank account -- required
+  // alongside the bill/OCR check above for 'verified' status. null means no
+  // payout has been triggered yet.
+  payout: {
+    status: PayoutStatus;
+    failureReason: string | null;
+    completedAt: string | null;
   } | null;
 }
 

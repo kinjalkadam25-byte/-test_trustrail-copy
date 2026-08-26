@@ -4,7 +4,7 @@ import { withTransaction } from '../db/pool';
 import { appendLedgerEntry } from '../utils/ledger';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { extractReceiptData } from '../utils/ocrClient';
-import { determineFinalStatus } from '../utils/verification';
+import { reconcileDisbursementStatus } from '../utils/verification';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.post('/', authMiddleware, requireRole('vendor'), async (req, res) => {
   }
 
   try {
-    const { bill, disbursementAmount } = await withTransaction(async (client) => {
+    const { bill } = await withTransaction(async (client) => {
       const disbursementRes = await client.query(`SELECT * FROM disbursements WHERE id = $1 FOR UPDATE`, [
         disbursementId,
       ]);
@@ -44,7 +44,7 @@ router.post('/', authMiddleware, requireRole('vendor'), async (req, res) => {
         amountClaimed: numericAmountClaimed,
       });
 
-      return { bill: billRes.rows[0], disbursementAmount: Number(disbursement.amount) };
+      return { bill: billRes.rows[0] };
     });
 
     res.status(201).json({ bill });
@@ -52,16 +52,14 @@ router.post('/', authMiddleware, requireRole('vendor'), async (req, res) => {
     // Fire-and-forget: OCR reads the actual receipt image as a cross-check
     // against the vendor's self-reported amountClaimed, independent of and
     // after the upload response -- a slow/failed vision-model call never
-    // delays or fails the upload itself. This is also where the disbursement
-    // gets its final status: the verification code assigned at disbursement
-    // creation is "made legit" as part of THIS transaction (upload -> OCR
-    // check -> decision), not as a side effect of some unrelated later GET
-    // request against the verify endpoint.
+    // delays or fails the upload itself. reconcileDisbursementStatus() then
+    // decides the final status by ALSO checking the payout leg (see
+    // routes/disbursements.ts) -- this bill/OCR check alone is necessary but
+    // not sufficient for 'verified' now that a bank payout is required too.
     waitUntil(
       (async () => {
         try {
           const ocr = await extractReceiptData(fileBase64, mimeType);
-          const finalStatus = determineFinalStatus(numericAmountClaimed, disbursementAmount, ocr);
 
           await withTransaction(async (client) => {
             if (ocr) {
@@ -80,17 +78,7 @@ router.post('/', authMiddleware, requireRole('vendor'), async (req, res) => {
               );
             }
 
-            await client.query(`UPDATE disbursements SET status = $1 WHERE id = $2`, [finalStatus, disbursementId]);
-
-            await appendLedgerEntry(client, 'verification', bill.id, {
-              disbursementId,
-              amountClaimed: numericAmountClaimed,
-              disbursementAmount,
-              ocrRan: Boolean(ocr),
-              ocrConfidence: ocr?.confidence ?? null,
-              ocrExtractedAmount: ocr?.extractedAmount ?? null,
-              finalStatus,
-            });
+            await reconcileDisbursementStatus(client, disbursementId);
           });
         } catch (err) {
           console.error('OCR/verification background step failed:', err);

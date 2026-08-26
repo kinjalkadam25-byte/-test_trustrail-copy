@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS bills (
 -- also writes one row here.
 CREATE TABLE IF NOT EXISTS ledger_entries (
   id             BIGSERIAL PRIMARY KEY,
-  entry_type     VARCHAR(20) NOT NULL CHECK (entry_type IN ('donation','allocation','disbursement','bill_upload','verification')),
+  entry_type     VARCHAR(20) NOT NULL CHECK (entry_type IN ('donation','allocation','disbursement','bill_upload','verification','payout')),
   reference_id   UUID NOT NULL,       -- the id of the row in the source table this entry documents
   payload        JSONB NOT NULL,      -- a snapshot of the data at write time
   previous_hash  VARCHAR(64) NOT NULL,
@@ -117,6 +117,40 @@ CREATE TABLE IF NOT EXISTS bill_ocr_results (
   created_at        TIMESTAMP NOT NULL DEFAULT now()
 );
 
+-- One row per vendor: the account funds are paid out to. Real bank-account
+-- verification (confirming the account exists / holder name matches, via a
+-- provider like Cashfree/RazorpayX) needs a registered business PAN to get
+-- even sandbox payout-API access, which this project doesn't have -- so this
+-- only validates account number / IFSC *format* server-side (see
+-- routes/vendor.ts), it does not confirm the account is real.
+CREATE TABLE IF NOT EXISTS vendor_bank_accounts (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id            UUID UNIQUE NOT NULL REFERENCES users(id),
+  account_number       VARCHAR(34) NOT NULL,
+  ifsc_code            VARCHAR(11) NOT NULL,
+  account_holder_name  VARCHAR(255) NOT NULL,
+  created_at           TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- One row per disbursement's payout attempt to its vendor's bank account.
+-- `status` starts 'processing' and is settled by a MOCK payout provider (see
+-- utils/payoutClient.ts) standing in for a real one -- same swap-later shape
+-- as bill_ocr_results/mlClient.ts, but for money movement instead of an
+-- optional signal: a disbursement can only reach 'verified' once its payout
+-- here is 'success' (see utils/verification.ts's reconcileDisbursementStatus).
+CREATE TABLE IF NOT EXISTS payouts (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  disbursement_id        UUID UNIQUE NOT NULL REFERENCES disbursements(id),
+  vendor_bank_account_id UUID NOT NULL REFERENCES vendor_bank_accounts(id),
+  amount                 NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  status                 VARCHAR(20) NOT NULL DEFAULT 'processing'
+                           CHECK (status IN ('processing','success','failed')),
+  provider_reference_id  VARCHAR(64),
+  failure_reason         TEXT,
+  initiated_at           TIMESTAMP NOT NULL DEFAULT now(),
+  completed_at           TIMESTAMP
+);
+
 -- Helpful indexes for the lookups the app actually does
 CREATE INDEX IF NOT EXISTS idx_donations_ngo_remaining ON donations(ngo_id, created_at) WHERE remaining_amount > 0;
 CREATE INDEX IF NOT EXISTS idx_donations_code ON donations(donation_code);
@@ -128,3 +162,4 @@ CREATE INDEX IF NOT EXISTS idx_allocations_disbursement ON allocations(disbursem
 CREATE INDEX IF NOT EXISTS idx_anomaly_flags_disbursement ON anomaly_flags(disbursement_id);
 CREATE INDEX IF NOT EXISTS idx_anomaly_flags_review_status ON anomaly_flags(review_status);
 CREATE INDEX IF NOT EXISTS idx_bill_ocr_results_bill ON bill_ocr_results(bill_id);
+CREATE INDEX IF NOT EXISTS idx_payouts_disbursement ON payouts(disbursement_id);

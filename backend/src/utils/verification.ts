@@ -1,3 +1,5 @@
+import type { PoolClient } from 'pg';
+import { appendLedgerEntry } from './ledger';
 import type { OcrResult } from '../types';
 
 const AMOUNT_EPSILON = 0.01;
@@ -34,4 +36,74 @@ export function determineFinalStatus(
 
   const ocrMatchesClaim = Math.abs(ocr.extractedAmount - amountClaimed) < AMOUNT_EPSILON;
   return ocrMatchesClaim ? 'verified' : 'under_review';
+}
+
+/**
+ * The bill/OCR check (determineFinalStatus above) and the payout to the
+ * vendor's bank account (utils/payoutClient.ts) complete independently and
+ * in either order -- this is called after EACH one finishes, re-checks the
+ * other's current state, and only writes a status once both agree. Whichever
+ * of the two finishes second is the one that actually flips the disbursement.
+ *
+ * Only ever touches a disbursement that's still `pending_review`: if it's
+ * already `verified` this no-ops (nothing to reconsider), and if it's
+ * `under_review` this also no-ops -- both possible either from an earlier
+ * run of this same function (a genuine bill/payout failure, which shouldn't
+ * be silently reopened by a late-arriving success on the other leg) or from
+ * a platform admin's manual review-queue call (routes/admin.ts), which this
+ * must never override.
+ */
+export async function reconcileDisbursementStatus(client: PoolClient, disbursementId: string): Promise<void> {
+  const disbursementRes = await client.query(`SELECT * FROM disbursements WHERE id = $1 FOR UPDATE`, [
+    disbursementId,
+  ]);
+  const disbursement = disbursementRes.rows[0];
+  if (!disbursement || disbursement.status !== 'pending_review') return;
+
+  const billRes = await client.query(`SELECT * FROM bills WHERE disbursement_id = $1`, [disbursementId]);
+  const bill = billRes.rows[0];
+  if (!bill) return; // no bill yet -- shouldn't be pending_review, but nothing to reconcile either way
+
+  const ocrRes = await client.query(`SELECT * FROM bill_ocr_results WHERE bill_id = $1`, [bill.id]);
+  const ocrRow = ocrRes.rows[0];
+  const ocr: OcrResult | null = ocrRow
+    ? {
+        extractedAmount: ocrRow.extracted_amount != null ? Number(ocrRow.extracted_amount) : null,
+        vendorName: ocrRow.vendor_name,
+        date: ocrRow.receipt_date,
+        confidence: ocrRow.confidence,
+      }
+    : null;
+
+  const billDecision = determineFinalStatus(Number(bill.amount_claimed), Number(disbursement.amount), ocr);
+
+  const payoutRes = await client.query(`SELECT * FROM payouts WHERE disbursement_id = $1`, [disbursementId]);
+  const payout = payoutRes.rows[0];
+
+  let finalStatus: 'verified' | 'under_review' | null;
+  if (billDecision === 'under_review') {
+    finalStatus = 'under_review'; // bad bill data is decisive regardless of payout state
+  } else if (!payout) {
+    finalStatus = null; // vendor has no bank account on file / payout never triggered -- can't verify yet
+  } else if (payout.status === 'failed') {
+    finalStatus = 'under_review'; // funds never reached the vendor -- cannot be legit
+  } else if (payout.status === 'success') {
+    finalStatus = 'verified';
+  } else {
+    finalStatus = null; // payout still processing -- wait for it
+  }
+
+  if (finalStatus === null) return;
+
+  await client.query(`UPDATE disbursements SET status = $1 WHERE id = $2`, [finalStatus, disbursementId]);
+  await appendLedgerEntry(client, 'verification', bill.id, {
+    disbursementId,
+    amountClaimed: Number(bill.amount_claimed),
+    disbursementAmount: Number(disbursement.amount),
+    ocrRan: Boolean(ocr),
+    ocrConfidence: ocr?.confidence ?? null,
+    ocrExtractedAmount: ocr?.extractedAmount ?? null,
+    payoutStatus: payout?.status ?? null,
+    finalStatus,
+  });
 }

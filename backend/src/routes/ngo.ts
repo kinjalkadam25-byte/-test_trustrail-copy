@@ -11,12 +11,16 @@ router.get('/disbursements', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT d.*, u.name AS vendor_name,
-              af.id AS flag_id, af.is_anomalous, af.reason AS flag_reason, af.review_status
+              af.id AS flag_id, af.is_anomalous, af.reason AS flag_reason, af.review_status,
+              p.status AS payout_status, p.failure_reason AS payout_failure_reason,
+              vba.id AS vendor_has_bank_account
        FROM disbursements d
        LEFT JOIN users u ON u.id = d.vendor_id
        LEFT JOIN LATERAL (
          SELECT * FROM anomaly_flags WHERE disbursement_id = d.id ORDER BY flagged_at DESC LIMIT 1
        ) af ON true
+       LEFT JOIN payouts p ON p.disbursement_id = d.id
+       LEFT JOIN vendor_bank_accounts vba ON vba.vendor_id = d.vendor_id
        WHERE d.ngo_id = $1
        ORDER BY d.created_at DESC`,
       [req.user!.ngoId]
@@ -39,6 +43,9 @@ router.get('/disbursements', async (req, res) => {
         flagStatus: r.flag_id
           ? { isAnomalous: r.is_anomalous, reason: r.flag_reason, reviewStatus: r.review_status }
           : null,
+        payoutStatus: r.payout_status ?? null,
+        payoutFailureReason: r.payout_failure_reason ?? null,
+        vendorHasBankAccount: Boolean(r.vendor_has_bank_account),
       }))
     );
   } catch (err) {
