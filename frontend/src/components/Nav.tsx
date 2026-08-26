@@ -46,6 +46,11 @@ export default function Nav() {
   }
 
   const roleLinks = user ? ROLE_LINKS[user.role] ?? [] : [];
+  // The signed-out landing page has its own focused CTA (see pages/index.tsx)
+  // -- these two links are only redundant clutter there, not useful
+  // shortcuts, since there's nothing to check/browse yet. Still shown on
+  // every other page, logged in or not.
+  const isSignedOutHome = !user && router.pathname === '/';
 
   return (
     <header className={styles.header}>
@@ -66,14 +71,16 @@ export default function Nav() {
           {/* Donors trace their own donations by donation code (above) --
               they never need a disbursement verification code, so this
               link is hidden for that role specifically. */}
-          {user?.role !== 'donor' && (
+          {user?.role !== 'donor' && !isSignedOutHome && (
             <Link href="/verify" className={styles.navLink}>
               Verify a code
             </Link>
           )}
-          <Link href="/public" className={styles.navLink}>
-            Public Ledger
-          </Link>
+          {!isSignedOutHome && (
+            <Link href="/public" className={styles.navLink}>
+              Public Ledger
+            </Link>
+          )}
 
           <button
             type="button"

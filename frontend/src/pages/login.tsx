@@ -29,54 +29,56 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={styles.wrap}>
-      <div className={styles.tabs}>
-        <span className={styles.tabActive}>Log in</span>
-        <Link href="/register" className={styles.tab}>
-          Register
-        </Link>
-      </div>
+    <div className={styles.page}>
+      <div className={styles.wrap}>
+        <div className={styles.tabs}>
+          <span className={styles.tabActive}>Log in</span>
+          <Link href="/register" className={styles.tab}>
+            Register
+          </Link>
+        </div>
 
-      <div className={ui.card}>
-        <h1>Welcome back</h1>
-        <form onSubmit={handleSubmit}>
-          {error && (
+        <div className={ui.card}>
+          <h1>Welcome back</h1>
+          <form onSubmit={handleSubmit}>
+            {error && (
+              <div className={ui.field}>
+                <div className={ui.error}>{error}</div>
+              </div>
+            )}
             <div className={ui.field}>
-              <div className={ui.error}>{error}</div>
+              <label className={ui.label} htmlFor="email">
+                Email
+              </label>
+              <input
+                id="email"
+                className={ui.input}
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
             </div>
-          )}
-          <div className={ui.field}>
-            <label className={ui.label} htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              className={ui.input}
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-          </div>
-          <div className={ui.field}>
-            <label className={ui.label} htmlFor="password">
-              Password
-            </label>
-            <input
-              id="password"
-              className={ui.input}
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
-          <button type="submit" className={ui.button} disabled={loading}>
-            {loading ? 'Logging in…' : 'Log in'}
-          </button>
-        </form>
+            <div className={ui.field}>
+              <label className={ui.label} htmlFor="password">
+                Password
+              </label>
+              <input
+                id="password"
+                className={ui.input}
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <button type="submit" className={ui.button} disabled={loading}>
+              {loading ? 'Logging in…' : 'Log in'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

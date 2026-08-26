@@ -1,6 +1,17 @@
+/* Fills the full page and centers .wrap both ways -- needed now that login/
+   register render with no Nav/footer around them (see Layout.tsx), so there's
+   nothing else on the page to anchor against. */
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
 .wrap {
+  width: 100%;
   max-width: 420px;
-  margin: 1.5rem auto 0;
 }
 
 .tabs {

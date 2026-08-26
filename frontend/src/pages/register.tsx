@@ -57,17 +57,18 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className={styles.wrap}>
-      <div className={styles.tabs}>
-        <Link href="/login" className={styles.tab}>
-          Log in
-        </Link>
-        <span className={styles.tabActive}>Register</span>
-      </div>
+    <div className={styles.page}>
+      <div className={styles.wrap}>
+        <div className={styles.tabs}>
+          <Link href="/login" className={styles.tab}>
+            Log in
+          </Link>
+          <span className={styles.tabActive}>Register</span>
+        </div>
 
-      <div className={ui.card}>
-        <h1>Create an account</h1>
-        <form onSubmit={handleSubmit}>
+        <div className={ui.card}>
+          <h1>Create an account</h1>
+          <form onSubmit={handleSubmit}>
           {error && (
             <div className={ui.field}>
               <div className={ui.error}>{error}</div>
@@ -152,6 +153,7 @@ export default function RegisterPage() {
             {loading ? 'Creating account…' : 'Create account'}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );

@@ -6,8 +6,8 @@ import Nav from './Nav';
 import { useAuth } from '../context/AuthContext';
 import styles from './Layout.module.css';
 
-// Login is a standalone entry point -- no site chrome around it.
-const NO_CHROME_ROUTES = ['/login'];
+// Login and registration are standalone entry points -- no site chrome around them.
+const NO_CHROME_ROUTES = ['/login', '/register'];
 
 export default function Layout({ children }: { children: ReactNode }) {
   const router = useRouter();

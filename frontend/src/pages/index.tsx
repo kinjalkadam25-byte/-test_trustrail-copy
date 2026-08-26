@@ -24,14 +24,9 @@ export default function Home() {
         </p>
         <div className={styles.heroActions}>
           {!user && (
-            <>
-              <Link href="/register" className={ui.button}>
-                Create an account
-              </Link>
-              <Link href="/verify" className={ui.buttonSecondary}>
-                Verify a code
-              </Link>
-            </>
+            <Link href="/register" className={ui.button}>
+              Create an account
+            </Link>
           )}
           {user && (
             <>
