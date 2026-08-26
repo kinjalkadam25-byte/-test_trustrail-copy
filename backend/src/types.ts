@@ -33,3 +33,10 @@ export interface AnomalyResult {
   isAnomalous: boolean;
   reason: string;
 }
+
+export interface OcrResult {
+  extractedAmount: number | null;
+  vendorName: string | null;
+  date: string | null;
+  confidence: 'high' | 'low' | 'none';
+}

@@ -3,3 +3,4 @@ uvicorn
 joblib
 pandas
 scikit-learn==1.8.0
+google-genai

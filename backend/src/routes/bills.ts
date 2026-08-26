@@ -1,7 +1,9 @@
+import { waitUntil } from '@vercel/functions';
 import { Router } from 'express';
-import { withTransaction } from '../db/pool';
+import { pool, withTransaction } from '../db/pool';
 import { appendLedgerEntry } from '../utils/ledger';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { extractReceiptData } from '../utils/ocrClient';
 
 const router = Router();
 
@@ -46,6 +48,34 @@ router.post('/', authMiddleware, requireRole('vendor'), async (req, res) => {
     });
 
     res.status(201).json({ bill: result });
+
+    // Fire-and-forget: OCR reads the actual receipt image as a cross-check
+    // against the vendor's self-reported amountClaimed, independent of and
+    // after the upload response -- a slow/failed vision-model call never
+    // delays or fails the upload itself.
+    waitUntil(
+      (async () => {
+        try {
+          const ocr = await extractReceiptData(fileBase64, mimeType);
+          if (!ocr) return;
+          const mismatch =
+            ocr.extractedAmount != null ? Math.abs(ocr.extractedAmount - numericAmountClaimed) > 0.01 : null;
+          await pool.query(
+            `INSERT INTO bill_ocr_results (bill_id, extracted_amount, vendor_name, receipt_date, confidence, amount_mismatch)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (bill_id) DO UPDATE SET
+               extracted_amount = EXCLUDED.extracted_amount,
+               vendor_name = EXCLUDED.vendor_name,
+               receipt_date = EXCLUDED.receipt_date,
+               confidence = EXCLUDED.confidence,
+               amount_mismatch = EXCLUDED.amount_mismatch`,
+            [result.id, ocr.extractedAmount, ocr.vendorName, ocr.date, ocr.confidence, mismatch]
+          );
+        } catch (err) {
+          console.error('OCR background extraction failed:', err);
+        }
+      })()
+    );
   } catch (err: any) {
     if (err?.code === '23505') return res.status(409).json({ error: 'A bill has already been uploaded for this disbursement' });
     if (err?.httpStatus) return res.status(err.httpStatus).json({ error: err.message });

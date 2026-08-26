@@ -102,6 +102,21 @@ CREATE TABLE IF NOT EXISTS anomaly_flags (
   flagged_at     TIMESTAMP NOT NULL DEFAULT now()
 );
 
+-- One row per bill: what the OCR pass (Gemini vision, see ml-service/main.py's
+-- /ocr/receipt) read off the actual receipt image, independent of whatever
+-- amount_claimed the vendor typed -- an automated cross-check against
+-- self-reported data, written asynchronously after the bill upload responds.
+CREATE TABLE IF NOT EXISTS bill_ocr_results (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bill_id           UUID UNIQUE NOT NULL REFERENCES bills(id),
+  extracted_amount  NUMERIC(12,2),
+  vendor_name       VARCHAR(255),
+  receipt_date      DATE,
+  confidence        VARCHAR(10) NOT NULL CHECK (confidence IN ('high','low','none')),
+  amount_mismatch   BOOLEAN,   -- null until there's an extracted_amount to compare amount_claimed against
+  created_at        TIMESTAMP NOT NULL DEFAULT now()
+);
+
 -- Helpful indexes for the lookups the app actually does
 CREATE INDEX IF NOT EXISTS idx_donations_ngo_remaining ON donations(ngo_id, created_at) WHERE remaining_amount > 0;
 CREATE INDEX IF NOT EXISTS idx_donations_code ON donations(donation_code);
@@ -112,3 +127,4 @@ CREATE INDEX IF NOT EXISTS idx_allocations_donation ON allocations(donation_id);
 CREATE INDEX IF NOT EXISTS idx_allocations_disbursement ON allocations(disbursement_id);
 CREATE INDEX IF NOT EXISTS idx_anomaly_flags_disbursement ON anomaly_flags(disbursement_id);
 CREATE INDEX IF NOT EXISTS idx_anomaly_flags_review_status ON anomaly_flags(review_status);
+CREATE INDEX IF NOT EXISTS idx_bill_ocr_results_bill ON bill_ocr_results(bill_id);

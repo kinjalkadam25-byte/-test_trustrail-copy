@@ -18,6 +18,11 @@ router.get('/:verificationCode', async (req, res) => {
     const billRes = await pool.query(`SELECT * FROM bills WHERE disbursement_id = $1`, [disbursement.id]);
     const bill = billRes.rows[0];
 
+    const ocrRes = bill
+      ? await pool.query(`SELECT * FROM bill_ocr_results WHERE bill_id = $1`, [bill.id])
+      : null;
+    const ocr = ocrRes?.rows[0] ?? null;
+
     const amountMatch = bill ? Number(bill.amount_claimed) === Number(disbursement.amount) : null;
 
     // Neither the 8-Phase Plan nor the Technical Architecture doc names an
@@ -55,6 +60,19 @@ router.get('/:verificationCode', async (req, res) => {
           }
         : null,
       amountMatch, // false is never silently hidden — always a first-class field
+      // OCR reads the actual receipt image independently of the vendor's
+      // self-reported amountClaimed above -- null until the background
+      // extraction (see routes/bills.ts) finishes, which can be a few
+      // seconds after the bill upload itself.
+      ocr: ocr
+        ? {
+            extractedAmount: ocr.extracted_amount,
+            vendorName: ocr.vendor_name,
+            date: ocr.receipt_date,
+            confidence: ocr.confidence,
+            amountMismatch: ocr.amount_mismatch,
+          }
+        : null,
     });
   } catch (err) {
     console.error('verify error:', err);
