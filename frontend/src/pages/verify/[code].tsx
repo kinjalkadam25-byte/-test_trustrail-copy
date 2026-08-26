@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import StatusPill from '../../components/StatusPill';
 import { ApiError } from '../../context/AuthContext';
@@ -25,6 +25,36 @@ export default function VerifyCodePage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to verify code'))
       .finally(() => setLoading(false));
   }, [code]);
+
+  // The OCR receipt check runs in the background after upload (see
+  // backend/src/routes/bills.ts's waitUntil call), so a bill uploaded just
+  // moments ago can briefly have `ocr: null` -- poll a few times rather than
+  // making the visitor manually refresh to see it show up. `pollAttempts` is
+  // a ref (not state) so each tick doesn't retrigger this effect and reset
+  // the counter -- only `needsPoll` flipping false actually stops it.
+  const needsPoll = Boolean(code) && Boolean(data?.bill) && !data?.ocr;
+  const pollAttempts = useRef(0);
+
+  useEffect(() => {
+    if (!needsPoll) {
+      pollAttempts.current = 0;
+      return;
+    }
+    const interval = setInterval(() => {
+      pollAttempts.current += 1;
+      api
+        .get<VerifyResponse>(`/api/verify/${encodeURIComponent(code)}`)
+        .then(setData)
+        .catch(() => {
+          /* ignore -- next tick (or the attempt cap below) will stop it */
+        })
+        .finally(() => {
+          if (pollAttempts.current >= 5) clearInterval(interval);
+        });
+    }, 3000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsPoll, code]);
 
   return (
     <div className={ui.stack}>
@@ -80,6 +110,59 @@ export default function VerifyCodePage() {
             </div>
           )}
           {data.amountMatch === true && <div className={ui.success}>The bill amount matches the disbursed amount.</div>}
+
+          {data.bill && (
+            <div className={ui.card}>
+              <h3>Automated receipt check (OCR)</h3>
+              <p className={ui.helpText} style={{ marginTop: '-0.4rem', marginBottom: '1rem' }}>
+                Reads the actual uploaded receipt image and cross-checks it against the amount the vendor entered —
+                independent of the self-reported match above.
+              </p>
+              {!data.ocr ? (
+                <div className={ui.helpText}>Checking the receipt image… this can take a few seconds.</div>
+              ) : data.ocr.confidence === 'none' ? (
+                <div className={ui.warning}>The uploaded file doesn&apos;t look like a receipt/bill.</div>
+              ) : (
+                <>
+                  {data.ocr.amountMismatch === true && (
+                    <div className={ui.error} style={{ marginBottom: '1rem' }}>
+                      The amount read off the receipt image doesn&apos;t match what the vendor entered.
+                    </div>
+                  )}
+                  {data.ocr.amountMismatch === false && (
+                    <div className={ui.success} style={{ marginBottom: '1rem' }}>
+                      The amount read off the receipt image matches what the vendor entered.
+                    </div>
+                  )}
+                  <div className={ui.statGrid}>
+                    <div className={ui.statCard}>
+                      <div className={ui.statValue}>
+                        {data.ocr.extractedAmount != null
+                          ? `₹${Number(data.ocr.extractedAmount).toLocaleString('en-IN')}`
+                          : '—'}
+                      </div>
+                      <div className={ui.statLabel}>Amount read from receipt</div>
+                    </div>
+                    <div className={ui.statCard}>
+                      <div className={ui.statValue}>{data.ocr.vendorName || '—'}</div>
+                      <div className={ui.statLabel}>Vendor name on receipt</div>
+                    </div>
+                    <div className={ui.statCard}>
+                      <div className={ui.statValue}>
+                        {data.ocr.date ? new Date(data.ocr.date).toLocaleDateString('en-IN') : '—'}
+                      </div>
+                      <div className={ui.statLabel}>Date on receipt</div>
+                    </div>
+                  </div>
+                  {data.ocr.confidence === 'low' && (
+                    <p className={ui.helpText} style={{ marginTop: '0.75rem' }}>
+                      Low confidence — the receipt image was partially illegible.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           <div className={ui.card}>
             <h3>Bill</h3>

@@ -94,6 +94,17 @@ export interface VerifyResponse {
     uploadedAt: string;
   } | null;
   amountMatch: boolean | null;
+  // Independent of amountMatch above -- reads the actual receipt image via
+  // OCR (see backend/src/routes/bills.ts) rather than trusting the vendor's
+  // self-reported amountClaimed. Runs in the background after bill upload,
+  // so this can be null for a few seconds on a freshly-uploaded bill.
+  ocr: {
+    extractedAmount: string | number | null;
+    vendorName: string | null;
+    date: string | null;
+    confidence: 'high' | 'low' | 'none';
+    amountMismatch: boolean | null;
+  } | null;
 }
 
 export interface AdminFlagRow {
