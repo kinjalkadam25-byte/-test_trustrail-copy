@@ -14,7 +14,9 @@ interface Vendor {
 }
 
 interface CreateResult {
-  disbursement: { id: string; verificationCode: string; amount: string | number };
+  // null here is the normal case -- no code exists yet, it's only assigned
+  // once the bill/OCR check and the bank payout have both succeeded.
+  disbursement: { id: string; verificationCode: string | null; amount: string | number };
   allocations: { id: string; donation_id: string; amount_allocated: string }[];
   underfunded: boolean;
 }
@@ -177,7 +179,17 @@ function DisbursementsPage() {
             </div>
           )}
           <div className={ui.row} style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <CodeBadge label="Verification code" code={result.disbursement.verificationCode} />
+            {result.disbursement.verificationCode ? (
+              <CodeBadge label="Verification code" code={result.disbursement.verificationCode} />
+            ) : (
+              <div>
+                <div className={ui.eyebrow}>Verification code</div>
+                <p className={ui.helpText} style={{ margin: 0, maxWidth: 280 }}>
+                  Not assigned yet — this appears once the vendor&apos;s bill is uploaded and confirmed, and the
+                  payout to their bank account has succeeded.
+                </p>
+              </div>
+            )}
             <div>
               <div className={ui.eyebrow}>Funded by</div>
               <table className={ui.table}>
@@ -276,7 +288,7 @@ function DisbursementsPage() {
                       '—'
                     )}
                   </td>
-                  <td className={ui.mono}>{r.disbursement.verificationCode}</td>
+                  <td className={ui.mono}>{r.disbursement.verificationCode || <span className={ui.helpText}>Pending</span>}</td>
                 </tr>
               ))}
             </tbody>

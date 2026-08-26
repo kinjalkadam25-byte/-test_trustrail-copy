@@ -134,7 +134,7 @@ export default function DonorLookupPage() {
                       <td>
                         <StatusPill status={a.disbursement.status} />
                       </td>
-                      <td className={ui.mono}>{a.disbursement.verificationCode}</td>
+                      <td className={ui.mono}>{a.disbursement.verificationCode || <span className={ui.helpText}>Pending</span>}</td>
                     </tr>
                   ))}
                 </tbody>

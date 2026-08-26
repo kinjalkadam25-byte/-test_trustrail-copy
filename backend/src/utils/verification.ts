@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { withUniqueCode } from './codes';
 import { appendLedgerEntry } from './ledger';
 import type { OcrResult } from '../types';
 
@@ -52,6 +53,10 @@ export function determineFinalStatus(
  * be silently reopened by a late-arriving success on the other leg) or from
  * a platform admin's manual review-queue call (routes/admin.ts), which this
  * must never override.
+ *
+ * The disbursement's verification_code (nullable -- see schema.sql) is
+ * assigned right here, the moment finalStatus resolves to 'verified' -- not
+ * at disbursement creation. An under_review disbursement never gets one.
  */
 export async function reconcileDisbursementStatus(client: PoolClient, disbursementId: string): Promise<void> {
   const disbursementRes = await client.query(`SELECT * FROM disbursements WHERE id = $1 FOR UPDATE`, [
@@ -95,6 +100,18 @@ export async function reconcileDisbursementStatus(client: PoolClient, disburseme
 
   if (finalStatus === null) return;
 
+  // The verification code is assigned HERE, not at disbursement creation --
+  // it doesn't exist at all until both the bill/OCR check and the bank
+  // payout have independently succeeded. under_review disbursements never
+  // get one from this path.
+  let verificationCode: string | null = disbursement.verification_code ?? null;
+  if (finalStatus === 'verified' && !verificationCode) {
+    await withUniqueCode(async (code) => {
+      await client.query(`UPDATE disbursements SET verification_code = $1 WHERE id = $2`, [code, disbursementId]);
+      verificationCode = code;
+    });
+  }
+
   await client.query(`UPDATE disbursements SET status = $1 WHERE id = $2`, [finalStatus, disbursementId]);
   await appendLedgerEntry(client, 'verification', bill.id, {
     disbursementId,
@@ -105,5 +122,6 @@ export async function reconcileDisbursementStatus(client: PoolClient, disburseme
     ocrExtractedAmount: ocr?.extractedAmount ?? null,
     payoutStatus: payout?.status ?? null,
     finalStatus,
+    verificationCode,
   });
 }

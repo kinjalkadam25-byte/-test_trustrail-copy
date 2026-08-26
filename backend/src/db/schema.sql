@@ -51,7 +51,12 @@ CREATE TABLE IF NOT EXISTS disbursements (
   amount             NUMERIC(12,2) NOT NULL CHECK (amount > 0),
   purpose            VARCHAR(255) NOT NULL,
   category           VARCHAR(100),
-  verification_code  VARCHAR(20) UNIQUE NOT NULL,
+  -- Nullable: only assigned once BOTH the bill/OCR check and the bank payout
+  -- succeed (see utils/verification.ts's reconcileDisbursementStatus) -- not
+  -- generated at creation time. GET /api/verify/:code is naturally
+  -- unreachable for a disbursement until this exists, since there's nothing
+  -- to look it up by.
+  verification_code  VARCHAR(20) UNIQUE,
   status             VARCHAR(20) NOT NULL DEFAULT 'pending_bill'
                        CHECK (status IN ('pending_bill','pending_review','verified','under_review')),
   underfunded        BOOLEAN NOT NULL DEFAULT false,

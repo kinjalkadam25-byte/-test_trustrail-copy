@@ -33,7 +33,10 @@ export interface DisbursementSummary {
   purpose: string;
   category: string | null;
   status: DisbursementStatus;
-  verificationCode?: string;
+  // Only exists once BOTH the bill/OCR check and the bank payout have
+  // independently succeeded -- see backend/src/utils/verification.ts's
+  // reconcileDisbursementStatus. Not assigned at creation time.
+  verificationCode?: string | null;
 }
 
 export interface Allocation {
@@ -87,7 +90,7 @@ export interface VendorDisbursement {
   purpose: string;
   category: string | null;
   status: DisbursementStatus;
-  verificationCode: string;
+  verificationCode: string | null;
   createdAt: string;
 }
 
@@ -145,7 +148,7 @@ export interface AdminFlagRow {
     amount: string | number;
     purpose: string;
     category: string | null;
-    verificationCode: string;
+    verificationCode: string | null;
     status: DisbursementStatus;
   };
 }

@@ -61,8 +61,13 @@ function FlagQueue() {
                 <div>
                   <h3 style={{ marginBottom: '0.2rem' }}>{r.disbursement.purpose}</h3>
                   <p className={ui.helpText} style={{ margin: 0 }}>
-                    {r.disbursement.ngoName} · ₹{Number(r.disbursement.amount).toLocaleString('en-IN')} ·{' '}
-                    <span className={ui.mono}>{r.disbursement.verificationCode}</span>
+                    {r.disbursement.ngoName} · ₹{Number(r.disbursement.amount).toLocaleString('en-IN')}
+                    {r.disbursement.verificationCode && (
+                      <>
+                        {' '}
+                        · <span className={ui.mono}>{r.disbursement.verificationCode}</span>
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className={ui.row}>

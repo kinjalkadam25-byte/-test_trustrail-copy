@@ -1,7 +1,6 @@
 import { waitUntil } from '@vercel/functions';
 import { Router } from 'express';
 import { withTransaction } from '../db/pool';
-import { withUniqueCode } from '../utils/codes';
 import { appendLedgerEntry } from '../utils/ledger';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { allocateDisbursement } from '../services/allocation';
@@ -40,12 +39,13 @@ router.post('/', authMiddleware, requireRole('ngo_admin'), async (req, res) => {
         vendorBankAccount = bankAccountRes.rows[0] ?? null;
       }
 
-      const inserted = await withUniqueCode((code) =>
-        client.query(
-          `INSERT INTO disbursements (ngo_id, vendor_id, amount, purpose, category, verification_code)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [ngoId, vendorId ?? null, numericAmount, purpose, category ?? null, code]
-        )
+      // No verification_code here -- it's assigned only once this
+      // disbursement actually reaches 'verified' (see
+      // utils/verification.ts's reconcileDisbursementStatus).
+      const inserted = await client.query(
+        `INSERT INTO disbursements (ngo_id, vendor_id, amount, purpose, category)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [ngoId, vendorId ?? null, numericAmount, purpose, category ?? null]
       );
       const disbursement = inserted.rows[0];
 
