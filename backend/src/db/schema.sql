@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS bills (
 -- also writes one row here.
 CREATE TABLE IF NOT EXISTS ledger_entries (
   id             BIGSERIAL PRIMARY KEY,
-  entry_type     VARCHAR(20) NOT NULL CHECK (entry_type IN ('donation','allocation','disbursement','bill_upload')),
+  entry_type     VARCHAR(20) NOT NULL CHECK (entry_type IN ('donation','allocation','disbursement','bill_upload','verification')),
   reference_id   UUID NOT NULL,       -- the id of the row in the source table this entry documents
   payload        JSONB NOT NULL,      -- a snapshot of the data at write time
   previous_hash  VARCHAR(64) NOT NULL,

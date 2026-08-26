@@ -25,20 +25,12 @@ router.get('/:verificationCode', async (req, res) => {
 
     const amountMatch = bill ? Number(bill.amount_claimed) === Number(disbursement.amount) : null;
 
-    // Neither the 8-Phase Plan nor the Technical Architecture doc names an
-    // explicit action that ever sets status = 'verified' — §5.4 describes this
-    // endpoint as a read-only lookup, but nothing else transitions the status
-    // enum's 'verified' value either, which left it permanently unreachable
-    // (dashboards/trust-score would always show 0% verified). The natural
-    // reading of "Verification Flow" is that a successful check IS what
-    // verifies a disbursement, so this promotes status here — but only out of
-    // 'pending_review', so it never overrides a platform admin's manual
-    // 'under_review' call from the flag queue.
-    let status = disbursement.status;
-    if (status === 'pending_review' && bill) {
-      status = amountMatch ? 'verified' : 'under_review';
-      await pool.query(`UPDATE disbursements SET status = $1 WHERE id = $2`, [status, disbursement.id]);
-    }
+    // Purely a read -- this endpoint no longer decides or writes status.
+    // That decision (verified vs. under_review) is made once, as part of the
+    // vendor's own bill-upload transaction, by the background OCR step in
+    // routes/bills.ts (see utils/verification.ts's determineFinalStatus).
+    // Until that background step finishes, this will still correctly show
+    // 'pending_review' -- there's nothing here to promote it early.
 
     res.json({
       disbursement: {
@@ -47,7 +39,7 @@ router.get('/:verificationCode', async (req, res) => {
         amount: disbursement.amount,
         purpose: disbursement.purpose,
         category: disbursement.category,
-        status,
+        status: disbursement.status,
         underfunded: disbursement.underfunded,
         createdAt: disbursement.created_at,
       },

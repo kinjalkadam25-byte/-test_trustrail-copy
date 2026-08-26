@@ -2,7 +2,7 @@ export type Role = 'donor' | 'ngo_admin' | 'vendor' | 'platform_admin';
 
 export type DisbursementStatus = 'pending_bill' | 'pending_review' | 'verified' | 'under_review';
 
-export type LedgerEntryType = 'donation' | 'allocation' | 'disbursement' | 'bill_upload';
+export type LedgerEntryType = 'donation' | 'allocation' | 'disbursement' | 'bill_upload' | 'verification';
 
 export interface JwtPayload {
   userId: string;

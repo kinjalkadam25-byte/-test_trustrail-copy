@@ -1,9 +1,10 @@
 import { waitUntil } from '@vercel/functions';
 import { Router } from 'express';
-import { pool, withTransaction } from '../db/pool';
+import { withTransaction } from '../db/pool';
 import { appendLedgerEntry } from '../utils/ledger';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { extractReceiptData } from '../utils/ocrClient';
+import { determineFinalStatus } from '../utils/verification';
 
 const router = Router();
 
@@ -17,7 +18,7 @@ router.post('/', authMiddleware, requireRole('vendor'), async (req, res) => {
   }
 
   try {
-    const result = await withTransaction(async (client) => {
+    const { bill, disbursementAmount } = await withTransaction(async (client) => {
       const disbursementRes = await client.query(`SELECT * FROM disbursements WHERE id = $1 FOR UPDATE`, [
         disbursementId,
       ]);
@@ -34,45 +35,65 @@ router.post('/', authMiddleware, requireRole('vendor'), async (req, res) => {
          VALUES ($1, $2, $3, $4, $5) RETURNING id, disbursement_id, vendor_id, file_mime_type, amount_claimed, uploaded_at`,
         [disbursementId, req.user!.userId, fileBuffer, mimeType, numericAmountClaimed]
       );
-      const bill = billRes.rows[0];
 
       await client.query(`UPDATE disbursements SET status = 'pending_review' WHERE id = $1`, [disbursementId]);
 
-      await appendLedgerEntry(client, 'bill_upload', bill.id, {
+      await appendLedgerEntry(client, 'bill_upload', billRes.rows[0].id, {
         disbursementId,
         vendorId: req.user!.userId,
         amountClaimed: numericAmountClaimed,
       });
 
-      return bill;
+      return { bill: billRes.rows[0], disbursementAmount: Number(disbursement.amount) };
     });
 
-    res.status(201).json({ bill: result });
+    res.status(201).json({ bill });
 
     // Fire-and-forget: OCR reads the actual receipt image as a cross-check
     // against the vendor's self-reported amountClaimed, independent of and
     // after the upload response -- a slow/failed vision-model call never
-    // delays or fails the upload itself.
+    // delays or fails the upload itself. This is also where the disbursement
+    // gets its final status: the verification code assigned at disbursement
+    // creation is "made legit" as part of THIS transaction (upload -> OCR
+    // check -> decision), not as a side effect of some unrelated later GET
+    // request against the verify endpoint.
     waitUntil(
       (async () => {
         try {
           const ocr = await extractReceiptData(fileBase64, mimeType);
-          if (!ocr) return;
-          const mismatch =
-            ocr.extractedAmount != null ? Math.abs(ocr.extractedAmount - numericAmountClaimed) > 0.01 : null;
-          await pool.query(
-            `INSERT INTO bill_ocr_results (bill_id, extracted_amount, vendor_name, receipt_date, confidence, amount_mismatch)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (bill_id) DO UPDATE SET
-               extracted_amount = EXCLUDED.extracted_amount,
-               vendor_name = EXCLUDED.vendor_name,
-               receipt_date = EXCLUDED.receipt_date,
-               confidence = EXCLUDED.confidence,
-               amount_mismatch = EXCLUDED.amount_mismatch`,
-            [result.id, ocr.extractedAmount, ocr.vendorName, ocr.date, ocr.confidence, mismatch]
-          );
+          const finalStatus = determineFinalStatus(numericAmountClaimed, disbursementAmount, ocr);
+
+          await withTransaction(async (client) => {
+            if (ocr) {
+              const mismatch =
+                ocr.extractedAmount != null ? Math.abs(ocr.extractedAmount - numericAmountClaimed) >= 0.01 : null;
+              await client.query(
+                `INSERT INTO bill_ocr_results (bill_id, extracted_amount, vendor_name, receipt_date, confidence, amount_mismatch)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (bill_id) DO UPDATE SET
+                   extracted_amount = EXCLUDED.extracted_amount,
+                   vendor_name = EXCLUDED.vendor_name,
+                   receipt_date = EXCLUDED.receipt_date,
+                   confidence = EXCLUDED.confidence,
+                   amount_mismatch = EXCLUDED.amount_mismatch`,
+                [bill.id, ocr.extractedAmount, ocr.vendorName, ocr.date, ocr.confidence, mismatch]
+              );
+            }
+
+            await client.query(`UPDATE disbursements SET status = $1 WHERE id = $2`, [finalStatus, disbursementId]);
+
+            await appendLedgerEntry(client, 'verification', bill.id, {
+              disbursementId,
+              amountClaimed: numericAmountClaimed,
+              disbursementAmount,
+              ocrRan: Boolean(ocr),
+              ocrConfidence: ocr?.confidence ?? null,
+              ocrExtractedAmount: ocr?.extractedAmount ?? null,
+              finalStatus,
+            });
+          });
         } catch (err) {
-          console.error('OCR background extraction failed:', err);
+          console.error('OCR/verification background step failed:', err);
         }
       })()
     );
