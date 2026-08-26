@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { pool } from '../db/pool';
 import { getRedis } from '../utils/redis';
+import { publicLookupRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
+
+// Every route in this file is fully public/unauthenticated -- apply the rate
+// limit to all of them here rather than repeating it per-route.
+router.use(publicLookupRateLimiter);
 
 const TRUST_SCORE_TTL_SECONDS = 5;
 

@@ -19,6 +19,13 @@ if (!process.env.JWT_SECRET) {
 
 const app = express();
 
+// Required for req.ip to reflect the real visitor (via X-Forwarded-For) when
+// running behind Vercel's edge proxy -- without this every request resolves
+// to the same internal proxy address, which would make IP-based rate
+// limiting (see middleware/rateLimiter.ts) apply globally across all
+// visitors combined instead of per-visitor.
+app.set('trust proxy', true);
+
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
 app.use(express.json({ limit: '15mb' })); // bills arrive as base64 JSON, so the default 100kb limit is too small
 

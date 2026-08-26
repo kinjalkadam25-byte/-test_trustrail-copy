@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../db/pool';
+import { publicLookupRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // GET /api/verify/:verificationCode — public — reveals the bill linked to a Verification Code
-router.get('/:verificationCode', async (req, res) => {
+router.get('/:verificationCode', publicLookupRateLimiter, async (req, res) => {
   try {
     const disbursementRes = await pool.query(
       `SELECT d.*, n.name AS ngo_name FROM disbursements d

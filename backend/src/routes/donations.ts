@@ -3,6 +3,7 @@ import { withTransaction, pool } from '../db/pool';
 import { withUniqueCode } from '../utils/codes';
 import { appendLedgerEntry } from '../utils/ledger';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { publicLookupRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -56,7 +57,7 @@ router.post('/', authMiddleware, requireRole('donor'), async (req, res) => {
 });
 
 // GET /api/donations/:code — public (the code IS the access control) — the donor traceability lookup
-router.get('/:code', async (req, res) => {
+router.get('/:code', publicLookupRateLimiter, async (req, res) => {
   try {
     const donationRes = await pool.query(
       `SELECT d.*, n.name AS ngo_name FROM donations d
