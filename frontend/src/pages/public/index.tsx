@@ -4,6 +4,8 @@ import { ApiError } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import StatusPill from '../../components/StatusPill';
 import DonutChart from '../../components/DonutChart';
+import NgoComparison from '../../components/NgoComparison';
+import type { NgoScoreRow } from '../../types';
 import ui from '../../styles/ui.module.css';
 import styles from './Ledger.module.css';
 
@@ -40,6 +42,7 @@ export default function PublicLedgerPage() {
   const [status, setStatus] = useState<'all' | 'verified' | 'pending'>('all');
   const [paused, setPaused] = useState(false);
   const [secondsAgo, setSecondsAgo] = useState(0);
+  const [ngoScores, setNgoScores] = useState<NgoScoreRow[]>([]);
   const lastFetchedAt = useRef<number>(Date.now());
 
   const load = useCallback(async () => {
@@ -62,6 +65,13 @@ export default function PublicLedgerPage() {
     const handle = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(handle);
   }, [load, search]);
+
+  useEffect(() => {
+    api
+      .get<NgoScoreRow[]>('/api/public/ngos')
+      .then(setNgoScores)
+      .catch(() => setNgoScores([]));
+  }, []);
 
   // Poll for live updates on the unfiltered view only
   useEffect(() => {
@@ -227,6 +237,17 @@ export default function PublicLedgerPage() {
             </div>
           </div>
         </>
+      )}
+
+      {ngoScores.length > 0 && (
+        <div className={ui.card}>
+          <h3 style={{ marginBottom: '0.2rem' }}>NGO trust comparison</h3>
+          <p className={ui.helpText} style={{ marginBottom: '1rem' }}>
+            Every registered NGO ranked by trust score. Select one to see what's driving it — its strengths and
+            concerns.
+          </p>
+          <NgoComparison rows={ngoScores} />
+        </div>
       )}
     </div>
   );

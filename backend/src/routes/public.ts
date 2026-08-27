@@ -15,6 +15,8 @@ interface TrustScorePayload {
   trustScore: number;
   verifiedPct: number;
   avgVerificationTime: number | null;
+  confirmedIssues: number;
+  totalDisbursements: number;
 }
 
 async function computeTrustScore(ngoId: string): Promise<TrustScorePayload | null> {
@@ -51,7 +53,7 @@ async function computeTrustScore(ngoId: string): Promise<TrustScorePayload | nul
 
   const trustScore = Math.max(0, Math.min(100, Math.round(verifiedPct - confirmedIssues * 10)));
 
-  return { trustScore, verifiedPct, avgVerificationTime };
+  return { trustScore, verifiedPct, avgVerificationTime, confirmedIssues, totalDisbursements: total };
 }
 
 // GET /api/public/ngo/:ngoId/trust-score — Redis-cached, 5s TTL (see Technical Architecture §5.7)
@@ -84,15 +86,22 @@ router.get('/ngo/:ngoId/trust-score', async (req, res) => {
   }
 });
 
-// GET /api/public/ngos -> [{ngo, trustScore}]
+// GET /api/public/ngos -> [{ngo, trustScore, verifiedPct, avgVerificationTime, confirmedIssues, totalDisbursements}]
 router.get('/ngos', async (_req, res) => {
   try {
     const ngosRes = await pool.query(`SELECT id, name, registration_number, description FROM ngos ORDER BY name ASC`);
     const results = await Promise.all(
-      ngosRes.rows.map(async (ngo) => ({
-        ngo: { id: ngo.id, name: ngo.name, registrationNumber: ngo.registration_number, description: ngo.description },
-        trustScore: (await computeTrustScore(ngo.id))?.trustScore ?? 0,
-      }))
+      ngosRes.rows.map(async (ngo) => {
+        const trust = await computeTrustScore(ngo.id);
+        return {
+          ngo: { id: ngo.id, name: ngo.name, registrationNumber: ngo.registration_number, description: ngo.description },
+          trustScore: trust?.trustScore ?? 0,
+          verifiedPct: trust?.verifiedPct ?? 0,
+          avgVerificationTime: trust?.avgVerificationTime ?? null,
+          confirmedIssues: trust?.confirmedIssues ?? 0,
+          totalDisbursements: trust?.totalDisbursements ?? 0,
+        };
+      })
     );
     res.json(results);
   } catch (err) {

@@ -167,3 +167,12 @@ export interface TrustScore {
   avgVerificationTime: number | null;
   cached?: boolean;
 }
+
+export interface NgoScoreRow {
+  ngo: Ngo;
+  trustScore: number;
+  verifiedPct: number;
+  avgVerificationTime: number | null;
+  confirmedIssues: number;
+  totalDisbursements: number;
+}
