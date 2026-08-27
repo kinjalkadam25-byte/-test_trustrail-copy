@@ -74,6 +74,33 @@ router.post('/flags/:id/review', async (req, res) => {
   }
 });
 
+// POST /api/admin/ngos — {name, registrationNumber?, description?} -> {ngo}
+router.post('/ngos', async (req, res) => {
+  const { name, registrationNumber, description } = req.body ?? {};
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO ngos (name, registration_number, description) VALUES ($1, $2, $3) RETURNING *`,
+      [name.trim(), registrationNumber || null, description || null]
+    );
+    const row = result.rows[0];
+    res.status(201).json({
+      ngo: {
+        id: row.id,
+        name: row.name,
+        registrationNumber: row.registration_number,
+        description: row.description,
+      },
+    });
+  } catch (err) {
+    console.error('create ngo error:', err);
+    res.status(500).json({ error: 'Failed to create NGO' });
+  }
+});
+
 // GET /api/admin/ledger/verify -> {valid, brokenAtEntryId?} — the tamper-detection demo endpoint
 router.get('/ledger/verify', async (_req, res) => {
   try {

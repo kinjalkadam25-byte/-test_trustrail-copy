@@ -18,6 +18,7 @@ const ROLE_LINKS: Record<string, { href: string; label: string }[]> = {
   platform_admin: [
     { href: '/admin/flags', label: 'Flag queue' },
     { href: '/admin/ledger', label: 'Ledger integrity' },
+    { href: '/admin/ngos', label: 'Add NGO' },
   ],
 };
 
