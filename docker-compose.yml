@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: trusttrail_dev_password
       POSTGRES_DB: trusttrail
     ports:
-      - '5433:5432'
+      - '5434:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
       # Postgres's official image auto-runs any .sql file placed here, in filename
@@ -24,12 +24,29 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '6380:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # backend/src/utils/redis.ts talks to Upstash's REST API (KV_REST_API_URL/TOKEN),
+  # the same client the production Vercel+Upstash Marketplace integration uses --
+  # it does not speak the plain Redis TCP protocol the `redis` service above
+  # exposes. This proxy (Upstash's own local-dev tool) puts a REST API in front
+  # of that same `redis` container, so the app code needs zero changes to work
+  # identically in docker-compose and in production.
+  redis-http:
+    image: hiett/serverless-redis-http:latest
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: local_dev_token
+      SRH_CONNECTION_STRING: redis://redis:6379
 
   backend:
     build: ./backend
@@ -39,6 +56,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      redis-http:
+        condition: service_started
     environment:
       PORT: 4000
       PGHOST: db
@@ -47,16 +66,18 @@ services:
       PGPASSWORD: trusttrail_dev_password
       PGDATABASE: trusttrail
       REDIS_URL: redis://redis:6379
+      KV_REST_API_URL: http://redis-http:80
+      KV_REST_API_TOKEN: local_dev_token
       JWT_SECRET: change_this_to_a_long_random_string
       JWT_EXPIRES_IN: 8h
-      CORS_ORIGIN: http://localhost:5007
+      CORS_ORIGIN: http://localhost:5008
       # Leave unset until Parth's Flask service exists — the backend skips
       # anomaly scoring cleanly with no other code changes needed. Once it's
       # ready and added as its own service, point this at it, e.g.:
       # ML_SERVICE_URL: http://ml-service:8000
       ML_SERVICE_URL: http://ml-service:8000
     ports:
-      - '4000:4000'
+      - '4001:4000'
     volumes:
       - ./backend/src:/app/src
     command: npm run dev
@@ -70,9 +91,9 @@ services:
       # NEXT_PUBLIC_* vars are baked into the browser bundle, so this must be a
       # URL the browser (on the host machine) can reach — the frontend
       # container itself never calls the backend directly.
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4001
     ports:
-      - '5007:5007'
+      - '5008:5007'
     volumes:
       - ./frontend/src:/app/src
     command: npm run dev
@@ -81,7 +102,7 @@ services:
     build: ./ml-service
     restart: unless-stopped
     ports:
-      - '8000:8000'
+      - '8001:8000'
 
 volumes:
   pgdata:
